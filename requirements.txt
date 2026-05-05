@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+qrcode[pil]
+sqlalchemy
+requests
+pillow

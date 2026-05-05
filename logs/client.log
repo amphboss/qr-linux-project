@@ -11,3 +11,15 @@
 2026-05-05 17:17:47,604 - INFO - QR получен: generated_qr/qr_20260505_171747.png
 2026-05-05 17:17:47,649 - INFO - Запрос истории
 2026-05-05 17:17:48,986 - INFO - Запрос истории
+2026-05-05 17:27:04,882 - INFO - Запуск GUI приложения
+2026-05-05 17:27:04,905 - INFO - Запрос истории
+2026-05-05 17:27:04,908 - ERROR - Ошибка загрузки истории: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /history (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+2026-05-05 17:27:04,909 - ERROR - HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /history (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+2026-05-05 22:12:37,059 - INFO - Запуск GUI приложения
+2026-05-05 22:12:37,116 - INFO - Запрос истории
+2026-05-05 22:12:39,564 - INFO - Нажата кнопка генерации QR
+2026-05-05 22:12:39,565 - ERROR - Введите текст
+2026-05-05 22:12:43,177 - INFO - Нажата кнопка генерации QR
+2026-05-05 22:12:43,215 - INFO - QR получен: generated_qr/qr_20260505_221243.png
+2026-05-05 22:12:43,226 - INFO - Запрос истории
+2026-05-05 22:12:48,761 - INFO - Запрос истории

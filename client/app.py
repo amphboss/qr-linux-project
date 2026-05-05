@@ -6,6 +6,9 @@ import threading
 import logging
 import os
 
+API_KEY = "mysecretkey"
+HEADERS = {"x-api-key": API_KEY}
+
 # ===== ЛОГИРОВАНИЕ =====
 if not os.path.exists("logs"):
     os.makedirs("logs")
@@ -74,7 +77,7 @@ class QRApp:
             return
 
         try:
-            response = requests.post(API_GENERATE, json={"text": text})
+            response = requests.post(API_GENERATE, json={"text": text}, headers=HEADERS)
             data = response.json()
 
             if data["status"] == "success":
@@ -102,7 +105,7 @@ class QRApp:
 
     def load_history_thread(self):
         try:
-            response = requests.get(API_HISTORY)
+            response = requests.get(API_HISTORY, headers=HEADERS)
             data = response.json()
 
             self.root.after(0, lambda: self.update_history_ui(data))
