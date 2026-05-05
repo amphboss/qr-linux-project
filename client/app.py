@@ -3,6 +3,20 @@ from tkinter import messagebox
 import requests
 from PIL import Image, ImageTk
 import threading
+import logging
+import os
+
+# ===== ЛОГИРОВАНИЕ =====
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+
+logging.basicConfig(
+    filename="logs/client.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 API_GENERATE = "http://127.0.0.1:8000/generate"
 API_HISTORY = "http://127.0.0.1:8000/history"
@@ -13,6 +27,8 @@ class QRApp:
         self.root = root
         self.root.title("QR Generator")
         self.root.geometry("500x600")
+
+        logger.info("Запуск GUI приложения")
 
         # ===== ВВОД =====
         self.label = tk.Label(root, text="Введите текст:")
@@ -42,11 +58,11 @@ class QRApp:
 
         self.history_data = []
 
-        # загрузка истории при старте
         self.load_history()
 
-    # ===== ГЕНЕРАЦИЯ QR (в потоке) =====
+    # ===== ГЕНЕРАЦИЯ =====
     def generate_qr(self):
+        logger.info("Нажата кнопка генерации QR")
         thread = threading.Thread(target=self.generate_qr_thread)
         thread.start()
 
@@ -62,14 +78,15 @@ class QRApp:
             data = response.json()
 
             if data["status"] == "success":
+                logger.info(f"QR получен: {data['file_path']}")
                 self.update_ui_after_generate(data["file_path"])
             else:
                 self.show_error(data["message"])
 
         except Exception as e:
+            logger.error(f"Ошибка запроса: {str(e)}")
             self.show_error(str(e))
 
-    # ===== ОБНОВЛЕНИЕ UI БЕЗОПАСНО =====
     def update_ui_after_generate(self, path):
         self.root.after(0, lambda: self._update_ui(path))
 
@@ -77,8 +94,9 @@ class QRApp:
         self.show_image(path)
         self.load_history()
 
-    # ===== ЗАГРУЗКА ИСТОРИИ (в потоке) =====
+    # ===== ИСТОРИЯ =====
     def load_history(self):
+        logger.info("Запрос истории")
         thread = threading.Thread(target=self.load_history_thread)
         thread.start()
 
@@ -90,6 +108,7 @@ class QRApp:
             self.root.after(0, lambda: self.update_history_ui(data))
 
         except Exception as e:
+            logger.error(f"Ошибка загрузки истории: {str(e)}")
             self.show_error(str(e))
 
     def update_history_ui(self, data):
@@ -101,7 +120,7 @@ class QRApp:
 
         self.history_data = data
 
-    # ===== ВЫБОР ИЗ СПИСКА =====
+    # ===== ВЫБОР =====
     def on_select(self, event):
         selection = self.listbox.curselection()
 
@@ -111,9 +130,11 @@ class QRApp:
         index = selection[0]
         item = self.history_data[index]
 
+        logger.info(f"Выбран QR: {item['id']}")
+
         self.show_image(item["file_path"])
 
-    # ===== ОТОБРАЖЕНИЕ QR =====
+    # ===== ОТОБРАЖЕНИЕ =====
     def show_image(self, path):
         try:
             img = Image.open(path)
@@ -125,10 +146,12 @@ class QRApp:
             self.image_label.image = photo
 
         except Exception as e:
+            logger.error(f"Ошибка отображения: {str(e)}")
             self.show_error(str(e))
 
     # ===== ОШИБКИ =====
     def show_error(self, message):
+        logger.error(message)
         self.root.after(0, lambda: messagebox.showerror("Ошибка", message))
 
 
