@@ -116,29 +116,31 @@ class QRApp(ctk.CTk):
         # --- Цвета ---
         color_row = ctk.CTkFrame(self._left_card, fg_color="transparent")
         color_row.pack(fill="x", padx=25, pady=(0, 10))
-        color_row.grid_columnconfigure((0, 1), weight=1)
+        color_row.grid_columnconfigure(0, weight=1, uniform="col")
+        color_row.grid_columnconfigure(1, weight=1, uniform="col")
 
         self.qr_color_pill = self._create_color_pill(
             color_row, "💧  Цвет QR-кода", self.qr_color, self.pick_qr_color
         )
-        self.qr_color_pill.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+        self.qr_color_pill.grid(row=0, column=0, padx=(0, 5), sticky="nsew")
 
         self.bg_color_pill = self._create_color_pill(
             color_row, "💧  Цвет фона", self.bg_color, self.pick_bg_color
         )
-        self.bg_color_pill.grid(row=0, column=1, padx=(5, 0), sticky="ew")
+        self.bg_color_pill.grid(row=0, column=1, padx=(5, 0), sticky="nsew")
 
         # --- Размер / Рамка ---
         param_row = ctk.CTkFrame(self._left_card, fg_color="transparent")
         param_row.pack(fill="x", padx=25, pady=(0, 10))
-        param_row.grid_columnconfigure((0, 1), weight=1)
+        param_row.grid_columnconfigure(0, weight=1, uniform="par")
+        param_row.grid_columnconfigure(1, weight=1, uniform="par")
 
         size_pill = self._create_param_pill(param_row, "⊞  Размер модуля", "10")
-        size_pill.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+        size_pill.grid(row=0, column=0, padx=(0, 5), sticky="nsew")
         self.size_entry = size_pill._entry
 
         border_pill = self._create_param_pill(param_row, "{ }  Рамка (отступ)", "4")
-        border_pill.grid(row=0, column=1, padx=(5, 0), sticky="ew")
+        border_pill.grid(row=0, column=1, padx=(5, 0), sticky="nsew")
         self.border_entry = border_pill._entry
 
         # --- Коррекция ошибок ---
@@ -174,7 +176,8 @@ class QRApp(ctk.CTk):
         # --- Кнопки ---
         btn_row = ctk.CTkFrame(self._left_card, fg_color="transparent")
         btn_row.pack(fill="x", padx=25, pady=(0, 25))
-        btn_row.grid_columnconfigure((0, 1), weight=1)
+        btn_row.grid_columnconfigure(0, weight=1, uniform="btn")
+        btn_row.grid_columnconfigure(1, weight=1, uniform="btn")
 
         self.generate_btn = ctk.CTkButton(
             btn_row, text="✨  Сгенерировать", height=44,
