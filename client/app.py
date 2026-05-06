@@ -2,7 +2,7 @@ import customtkinter as ctk
 import requests
 from PIL import Image
 import threading
-from tkinter import colorchooser
+from tkinter import colorchooser, filedialog
 import os
 
 API_GENERATE = "http://127.0.0.1:8000/generate"
@@ -172,9 +172,18 @@ class QRApp(ctk.CTk):
         if not self.qr_path:
             return
 
-        new_path = "saved_qr.png"
+        dest = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG", "*.png"), ("Все файлы", "*.*")],
+            initialfile=os.path.basename(self.qr_path),
+            title="Сохранить QR-код"
+        )
+
+        if not dest:
+            return
+
         with open(self.qr_path, "rb") as f:
-            with open(new_path, "wb") as out:
+            with open(dest, "wb") as out:
                 out.write(f.read())
 
     # ================= HISTORY =================
