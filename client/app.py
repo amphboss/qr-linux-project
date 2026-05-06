@@ -2,7 +2,7 @@ import customtkinter as ctk
 import requests
 from PIL import Image
 import threading
-from tkinter import colorchooser, filedialog
+from tkinter import colorchooser, filedialog, messagebox
 import os
 
 API_GENERATE = "http://127.0.0.1:8000/generate"
@@ -408,28 +408,48 @@ class QRApp(ctk.CTk):
     def generate(self):
         threading.Thread(target=self.generate_thread).start()
 
+    def _show_error(self, title, message):
+        self.after(0, lambda: messagebox.showerror(title, message))
+
+    def _show_warning(self, title, message):
+        self.after(0, lambda: messagebox.showwarning(title, message))
+
     def generate_thread(self):
         text = self.textbox.get("1.0", "end").strip()
 
+        if not text:
+            self._show_warning("Пустой ввод", "Введите текст или URL для генерации QR-кода.")
+            return
+
         error_code = self.error_level.get()[0]
+
+        try:
+            box_size = int(self.size_entry.get() or 10)
+            border = int(self.border_entry.get() or 4)
+        except ValueError:
+            self._show_error("Ошибка параметров", "Размер модуля и рамка должны быть числами.")
+            return
 
         data = {
             "text": text,
             "fill_color": self.qr_color,
             "back_color": self.bg_color,
-            "box_size": int(self.size_entry.get() or 10),
-            "border": int(self.border_entry.get() or 4),
+            "box_size": box_size,
+            "border": border,
             "error": error_code,
         }
 
         try:
             r = requests.post(API_GENERATE, json=data, headers=HEADERS)
 
-            print("STATUS:", r.status_code)
-            print("TEXT:", r.text)
+            if r.status_code == 422:
+                detail = r.json().get("detail", [])
+                msgs = [d.get("msg", "") for d in detail] if isinstance(detail, list) else [str(detail)]
+                self._show_error("Ошибка валидации", "\n".join(msgs))
+                return
 
             if r.status_code != 200:
-                print("Ошибка сервера")
+                self._show_error("Ошибка сервера", f"Сервер вернул код {r.status_code}.")
                 return
 
             res = r.json()
@@ -437,10 +457,12 @@ class QRApp(ctk.CTk):
             if res.get("status") == "success":
                 self.after(0, lambda: self.update_ui(res["file_path"]))
             else:
-                print("Ошибка API:", res)
+                self._show_error("Ошибка API", str(res))
 
+        except requests.ConnectionError:
+            self._show_error("Нет соединения", "Не удалось подключиться к серверу.\nУбедитесь, что сервер запущен.")
         except Exception as e:
-            print("EXCEPTION:", e)
+            self._show_error("Ошибка", str(e))
 
     def update_ui(self, path):
         self.qr_path = path
@@ -454,6 +476,7 @@ class QRApp(ctk.CTk):
     # ================= SAVE =================
     def save_file(self):
         if not self.qr_path:
+            messagebox.showwarning("Нечего сохранять", "Сначала сгенерируйте QR-код.")
             return
 
         dest = filedialog.asksaveasfilename(
