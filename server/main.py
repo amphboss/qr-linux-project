@@ -20,10 +20,8 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# ===== НАСТРОЙКИ =====
 API_KEY = "mysecretkey"
 
-# ===== APP =====
 app = FastAPI(title="QR Generator API")
 
 Base.metadata.create_all(bind=engine)
@@ -31,9 +29,14 @@ Base.metadata.create_all(bind=engine)
 qr_generator = QRGenerator()
 
 
-# ===== ВАЛИДАЦИЯ =====
+# ===== МОДЕЛЬ =====
 class QRRequest(BaseModel):
     text: str
+    fill_color: str = "#000000"
+    back_color: str = "#ffffff"
+    box_size: int = 10
+    border: int = 4
+    error: str = "M"
 
     @field_validator("text")
     @classmethod
@@ -49,25 +52,42 @@ class QRRequest(BaseModel):
 
         return value.strip()
 
+    @field_validator("box_size")
+    @classmethod
+    def validate_box(cls, v):
+        if v < 1 or v > 50:
+            raise ValueError("Размер вне диапазона")
+        return v
 
-# ===== API KEY DEPENDENCY =====
+    @field_validator("border")
+    @classmethod
+    def validate_border(cls, v):
+        if v < 0 or v > 20:
+            raise ValueError("Отступ вне диапазона")
+        return v
+
+
+# ===== API KEY =====
 def verify_api_key(x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
-        logger.warning("Неверный API ключ")
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
 # ===== ROUTES =====
 @app.post("/generate")
-def generate_qr(
-    request: QRRequest,
-    _: None = Depends(verify_api_key)
-):
+def generate_qr(request: QRRequest, _: None = Depends(verify_api_key)):
     db = SessionLocal()
 
-    logger.info(f"Генерация QR: {request.text}")
+    logger.info(f"QR: {request.text}")
 
-    path = qr_generator.generate(request.text)
+    path = qr_generator.generate(
+        data=request.text,
+        fill_color=request.fill_color,
+        back_color=request.back_color,
+        box_size=request.box_size,
+        border=request.border,
+        error=request.error
+    )
 
     qr_record = QRCode(
         text=request.text,
@@ -76,7 +96,6 @@ def generate_qr(
 
     db.add(qr_record)
     db.commit()
-
     db.close()
 
     return {
@@ -86,12 +105,8 @@ def generate_qr(
 
 
 @app.get("/history")
-def get_history(
-    _: None = Depends(verify_api_key)
-):
+def get_history(_: None = Depends(verify_api_key)):
     db = SessionLocal()
-
-    logger.info("Запрос истории")
 
     records = db.query(QRCode).all()
 

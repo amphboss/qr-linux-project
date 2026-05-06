@@ -1,164 +1,203 @@
-import tkinter as tk
-from tkinter import messagebox
+import customtkinter as ctk
 import requests
-from PIL import Image, ImageTk
+from PIL import Image
 import threading
-import logging
+from tkinter import colorchooser
 import os
-
-API_KEY = "mysecretkey"
-HEADERS = {"x-api-key": API_KEY}
-
-# ===== ЛОГИРОВАНИЕ =====
-if not os.path.exists("logs"):
-    os.makedirs("logs")
-
-logging.basicConfig(
-    filename="logs/client.log",
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
-logger = logging.getLogger(__name__)
 
 API_GENERATE = "http://127.0.0.1:8000/generate"
 API_HISTORY = "http://127.0.0.1:8000/history"
+HEADERS = {"x-api-key": "mysecretkey"}
+
+ctk.set_appearance_mode("light")
+ctk.set_default_color_theme("blue")
 
 
-class QRApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("QR Generator")
-        self.root.geometry("500x600")
+class QRApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
 
-        logger.info("Запуск GUI приложения")
+        self.title("QR Code Generator")
+        self.geometry("1100x650")
 
-        # ===== ВВОД =====
-        self.label = tk.Label(root, text="Введите текст:")
-        self.label.pack(pady=5)
-
-        self.entry = tk.Entry(root, width=40)
-        self.entry.pack(pady=5)
-
-        self.button = tk.Button(root, text="Создать QR", command=self.generate_qr)
-        self.button.pack(pady=10)
-
-        # ===== КАРТИНКА =====
-        self.image_label = tk.Label(root)
-        self.image_label.pack(pady=10)
-
-        # ===== ИСТОРИЯ =====
-        self.history_label = tk.Label(root, text="История QR:")
-        self.history_label.pack(pady=5)
-
-        self.listbox = tk.Listbox(root, width=60, height=10)
-        self.listbox.pack(pady=5)
-
-        self.listbox.bind("<<ListboxSelect>>", self.on_select)
-
-        self.refresh_button = tk.Button(root, text="Обновить историю", command=self.load_history)
-        self.refresh_button.pack(pady=5)
-
+        self.qr_path = None
         self.history_data = []
 
+        self.grid_columnconfigure((0, 1), weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        self.create_left()
+        self.create_right()
+
+        self.check_server()
         self.load_history()
 
-    # ===== ГЕНЕРАЦИЯ =====
-    def generate_qr(self):
-        logger.info("Нажата кнопка генерации QR")
-        thread = threading.Thread(target=self.generate_qr_thread)
-        thread.start()
+    # ================= LEFT =================
+    def create_left(self):
+        frame = ctk.CTkFrame(self, corner_radius=15)
+        frame.grid(row=0, column=0, padx=15, pady=15, sticky="nsew")
 
-    def generate_qr_thread(self):
-        text = self.entry.get()
+        ctk.CTkLabel(frame, text="⚙ Настройки", font=("Segoe UI", 18, "bold")).pack(anchor="w", padx=20, pady=15)
 
-        if not text:
-            self.show_error("Введите текст")
+        self.textbox = ctk.CTkTextbox(frame, height=100)
+        self.textbox.pack(fill="x", padx=20, pady=10)
+
+        # Цвета
+        color_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        color_frame.pack(fill="x", padx=20)
+
+        self.qr_color = "#000000"
+        self.bg_color = "#ffffff"
+
+        self.color_btn = ctk.CTkButton(color_frame, text="Цвет QR", command=self.pick_qr_color)
+        self.color_btn.pack(side="left", padx=5)
+
+        self.bg_btn = ctk.CTkButton(color_frame, text="Фон", command=self.pick_bg_color)
+        self.bg_btn.pack(side="left", padx=5)
+
+        # Параметры
+        param_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        param_frame.pack(fill="x", padx=20, pady=10)
+
+        self.size_entry = ctk.CTkEntry(param_frame, placeholder_text="Размер (10)")
+        self.size_entry.pack(side="left", padx=5)
+
+        self.border_entry = ctk.CTkEntry(param_frame, placeholder_text="Отступ (4)")
+        self.border_entry.pack(side="left", padx=5)
+
+        # Коррекция ошибок
+        self.error_level = ctk.CTkOptionMenu(
+            frame,
+            values=["L", "M", "Q", "H"]
+        )
+        self.error_level.set("M")
+        self.error_level.pack(fill="x", padx=20, pady=10)
+
+        # Кнопки
+        self.generate_btn = ctk.CTkButton(frame, text="✨ Сгенерировать", height=40, command=self.generate)
+        self.generate_btn.pack(fill="x", padx=20, pady=10)
+
+        self.save_btn = ctk.CTkButton(frame, text="💾 Сохранить PNG", command=self.save_file)
+        self.save_btn.pack(fill="x", padx=20, pady=5)
+
+        # История
+        ctk.CTkLabel(frame, text="История").pack(anchor="w", padx=20, pady=(10, 0))
+
+        self.history_list = ctk.CTkTextbox(frame, height=150)
+        self.history_list.pack(fill="both", padx=20, pady=10)
+
+    # ================= RIGHT =================
+    def create_right(self):
+        frame = ctk.CTkFrame(self, corner_radius=15)
+        frame.grid(row=0, column=1, padx=15, pady=15, sticky="nsew")
+
+        top = ctk.CTkFrame(frame, fg_color="transparent")
+        top.pack(fill="x")
+
+        ctk.CTkLabel(top, text="👁 Предпросмотр", font=("Segoe UI", 18, "bold")).pack(side="left", padx=20, pady=15)
+
+        self.status_label = ctk.CTkLabel(top, text="● Проверка...", text_color="gray")
+        self.status_label.pack(side="right", padx=20)
+
+        self.image_label = ctk.CTkLabel(frame, text="QR-код появится здесь")
+        self.image_label.pack(expand=True)
+
+    # ================= COLORS =================
+    def pick_qr_color(self):
+        color = colorchooser.askcolor()[1]
+        if color:
+            self.qr_color = color
+
+    def pick_bg_color(self):
+        color = colorchooser.askcolor()[1]
+        if color:
+            self.bg_color = color
+
+    # ================= SERVER =================
+    def check_server(self):
+        def check():
+            try:
+                requests.get("http://127.0.0.1:8000/docs", timeout=2)
+                self.after(0, lambda: self.status_label.configure(text="● Сервер доступен", text_color="green"))
+            except:
+                self.after(0, lambda: self.status_label.configure(text="● Сервер недоступен", text_color="red"))
+
+        threading.Thread(target=check).start()
+
+    # ================= GENERATE =================
+    def generate(self):
+        threading.Thread(target=self.generate_thread).start()
+
+    def generate_thread(self):
+        text = self.textbox.get("1.0", "end").strip()
+
+        data = {
+            "text": text,
+            "fill_color": self.qr_color,
+            "back_color": self.bg_color,
+            "box_size": int(self.size_entry.get() or 10),
+            "border": int(self.border_entry.get() or 4),
+            "error": self.error_level.get()
+        }
+
+        try:
+            r = requests.post(API_GENERATE, json=data, headers=HEADERS)
+
+            print("STATUS:", r.status_code)
+            print("TEXT:", r.text)
+
+            if r.status_code != 200:
+                print("Ошибка сервера")
+                return
+
+            res = r.json()
+
+            if res.get("status") == "success":
+                self.after(0, lambda: self.update_ui(res["file_path"]))
+            else:
+                print("Ошибка API:", res)
+
+        except Exception as e:
+            print("EXCEPTION:", e)
+
+    def update_ui(self, path):
+        self.qr_path = path
+        img = ctk.CTkImage(Image.open(path), size=(280, 280))
+        self.image_label.configure(image=img, text="")
+        self.image_label.image = img
+        self.load_history()
+
+    # ================= SAVE =================
+    def save_file(self):
+        if not self.qr_path:
             return
 
-        try:
-            response = requests.post(API_GENERATE, json={"text": text}, headers=HEADERS)
-            data = response.json()
+        new_path = "saved_qr.png"
+        with open(self.qr_path, "rb") as f:
+            with open(new_path, "wb") as out:
+                out.write(f.read())
 
-            if data["status"] == "success":
-                logger.info(f"QR получен: {data['file_path']}")
-                self.update_ui_after_generate(data["file_path"])
-            else:
-                self.show_error(data["message"])
-
-        except Exception as e:
-            logger.error(f"Ошибка запроса: {str(e)}")
-            self.show_error(str(e))
-
-    def update_ui_after_generate(self, path):
-        self.root.after(0, lambda: self._update_ui(path))
-
-    def _update_ui(self, path):
-        self.show_image(path)
-        self.load_history()
-
-    # ===== ИСТОРИЯ =====
+    # ================= HISTORY =================
     def load_history(self):
-        logger.info("Запрос истории")
-        thread = threading.Thread(target=self.load_history_thread)
-        thread.start()
+        threading.Thread(target=self.history_thread).start()
 
-    def load_history_thread(self):
+    def history_thread(self):
         try:
-            response = requests.get(API_HISTORY, headers=HEADERS)
-            data = response.json()
+            r = requests.get(API_HISTORY, headers=HEADERS)
+            data = r.json()
+            self.after(0, lambda: self.update_history(data))
+        except:
+            pass
 
-            self.root.after(0, lambda: self.update_history_ui(data))
-
-        except Exception as e:
-            logger.error(f"Ошибка загрузки истории: {str(e)}")
-            self.show_error(str(e))
-
-    def update_history_ui(self, data):
-        self.listbox.delete(0, tk.END)
+    def update_history(self, data):
+        self.history_list.delete("1.0", "end")
 
         for item in data:
-            display_text = f"{item['id']}: {item['text']}"
-            self.listbox.insert(tk.END, display_text)
+            self.history_list.insert("end", f"{item['id']}: {item['text']}\n")
 
         self.history_data = data
 
-    # ===== ВЫБОР =====
-    def on_select(self, event):
-        selection = self.listbox.curselection()
-
-        if not selection:
-            return
-
-        index = selection[0]
-        item = self.history_data[index]
-
-        logger.info(f"Выбран QR: {item['id']}")
-
-        self.show_image(item["file_path"])
-
-    # ===== ОТОБРАЖЕНИЕ =====
-    def show_image(self, path):
-        try:
-            img = Image.open(path)
-            img = img.resize((200, 200))
-
-            photo = ImageTk.PhotoImage(img)
-
-            self.image_label.config(image=photo)
-            self.image_label.image = photo
-
-        except Exception as e:
-            logger.error(f"Ошибка отображения: {str(e)}")
-            self.show_error(str(e))
-
-    # ===== ОШИБКИ =====
-    def show_error(self, message):
-        logger.error(message)
-        self.root.after(0, lambda: messagebox.showerror("Ошибка", message))
-
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = QRApp(root)
-    root.mainloop()
+    app = QRApp()
+    app.mainloop()
