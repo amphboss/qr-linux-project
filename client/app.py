@@ -257,7 +257,7 @@ class QRApp(ctk.CTk):
         self._preview_frame = ctk.CTkFrame(
             self._right_card, corner_radius=14, border_width=1
         )
-        self._preview_frame.pack(fill="both", expand=True, padx=25, pady=(0, 25))
+        self._preview_frame.pack(fill="both", expand=True, padx=25, pady=(0, 10))
 
         self.image_label = ctk.CTkLabel(self._preview_frame, text="")
         self.image_label.pack(expand=True)
@@ -275,6 +275,28 @@ class QRApp(ctk.CTk):
         )
         self.preview_sub.pack(pady=(0, 20))
         self._labels2.append(self.preview_sub)
+
+        # --- История ---
+        self._history_header = ctk.CTkLabel(
+            self._right_card, text="📋  История",
+            font=("Segoe UI", 14, "bold")
+        )
+        self._history_header.pack(anchor="w", padx=25, pady=(5, 3))
+        self._labels1.append(self._history_header)
+
+        self._history_frame = ctk.CTkFrame(
+            self._right_card, corner_radius=12, border_width=1, height=120
+        )
+        self._history_frame.pack(fill="x", padx=25, pady=(0, 20))
+        self._history_frame.pack_propagate(False)
+        self._pills.append(self._history_frame)
+
+        self.history_list = ctk.CTkTextbox(
+            self._history_frame, font=("Segoe UI", 12),
+            corner_radius=10, border_width=0, activate_scrollbars=True,
+        )
+        self.history_list.pack(fill="both", expand=True, padx=6, pady=6)
+        self.history_list.configure(state="disabled")
 
     # ================= FOOTER =================
     def create_footer(self):
@@ -355,6 +377,11 @@ class QRApp(ctk.CTk):
         # предпросмотр
         self._preview_frame.configure(
             fg_color=t["input"], border_color=t["border"]
+        )
+
+        # история
+        self.history_list.configure(
+            fg_color=t["pill"], text_color=t["text1"]
         )
 
         # кнопка генерации
@@ -507,6 +534,11 @@ class QRApp(ctk.CTk):
 
     def update_history(self, data):
         self.history_data = data
+        self.history_list.configure(state="normal")
+        self.history_list.delete("1.0", "end")
+        for item in data:
+            self.history_list.insert("end", f"#{item['id']}  {item['text']}\n")
+        self.history_list.configure(state="disabled")
 
 
 if __name__ == "__main__":
