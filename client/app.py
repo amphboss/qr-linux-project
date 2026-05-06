@@ -87,7 +87,6 @@ class QRApp(ctk.CTk):
             font=("Segoe UI", 13)
         )
         self.status_label.grid(row=0, column=1, sticky="e", padx=25, pady=(10, 0))
-        self._labels2.append(self.status_label)
 
     # ================= LEFT =================
     def create_left(self):
@@ -429,7 +428,8 @@ class QRApp(ctk.CTk):
                 self.after(0, lambda: self.status_label.configure(
                     text="● Сервер недоступен", text_color="#ef4444"))
 
-        threading.Thread(target=check).start()
+        threading.Thread(target=check, daemon=True).start()
+        self.after(5000, self.check_server)
 
     # ================= GENERATE =================
     def generate(self):
