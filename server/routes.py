@@ -12,14 +12,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-qr_generator = QRGenerator()
-db_lock = threading.Lock()
+qr_generator = QRGenerator()       # экземпляр генератора QR
+db_lock = threading.Lock()          # мьютекс для защиты SQLite от конкурентного доступа
 
 
 @router.post("/generate")
 def generate_qr(request: QRRequest, _: None = Depends(verify_api_key)):
+    """Эндпоинт генерации QR: создаёт изображение и сохраняет запись в БД."""
     logger.info(f"QR: {request.text}")
 
+    # Генерация QR-кода (сохраняет PNG на диск)
     path = qr_generator.generate(
         data=request.text,
         fill_color=request.fill_color,
@@ -29,6 +31,7 @@ def generate_qr(request: QRRequest, _: None = Depends(verify_api_key)):
         error=request.error
     )
 
+    # Запись в БД под мьютексом (защита от параллельных записей)
     with db_lock:
         db = SessionLocal()
         try:
@@ -49,6 +52,8 @@ def generate_qr(request: QRRequest, _: None = Depends(verify_api_key)):
 
 @router.get("/history")
 def get_history(_: None = Depends(verify_api_key)):
+    """Эндпоинт истории: возвращает все записи из БД."""
+    # Чтение под мьютексом
     with db_lock:
         db = SessionLocal()
         try:

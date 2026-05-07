@@ -5,46 +5,54 @@ from tkinter import colorchooser
 from client.theme import ThemeMixin
 from client.handlers import HandlersMixin
 
+# Установка базового режима CustomTkinter
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
 
 class QRApp(ThemeMixin, HandlersMixin, ctk.CTk):
+    """Главное окно приложения. Наследует ThemeMixin (темы) и HandlersMixin (логика)."""
+
     def __init__(self):
         super().__init__()
 
         self.title("QR Code Generator")
         self.geometry("1100x680")
 
-        self.qr_path = None
-        self.history_data = []
-        self.qr_color = "#000000"
-        self.bg_color = "#ffffff"
-        self._lock = threading.Lock()
+        # Состояние приложения
+        self.qr_path = None          # путь к последнему QR
+        self.history_data = []       # кэш истории
+        self.qr_color = "#000000"    # цвет QR-кода
+        self.bg_color = "#ffffff"    # цвет фона QR
+        self._lock = threading.Lock()  # мьютекс для потокобезопасности
         self._init_theme()
 
-        # списки виджетов для перекраски
-        self._cards = []
-        self._pills = []
-        self._labels1 = []
-        self._labels2 = []
-        self._entries = []
+        # Списки виджетов для массовой перекраски при смене темы
+        self._cards = []    # карточки-контейнеры
+        self._pills = []    # пилл-компоненты (параметры)
+        self._labels1 = []  # основной текст
+        self._labels2 = []  # второстепенный текст
+        self._entries = []  # поля ввода
 
+        # Сетка: 2 колонки, растягиваются равномерно
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
+        # Построение интерфейса
         self.create_status_bar()
-        self.create_left()
-        self.create_right()
-        self.create_footer()
-        self._apply_theme()
+        self.create_left()      # левая панель: ввод и параметры
+        self.create_right()     # правая панель: предпросмотр и история
+        self.create_footer()    # нижняя панель: подсказка + кнопка темы
+        self._apply_theme()     # применяем цвета текущей темы
 
-        self.check_server()
-        self.load_history()
+        # Фоновые задачи при старте
+        self.check_server()     # проверка сервера
+        self.load_history()     # загрузка истории
 
     # ================= STATUS BAR =================
     def create_status_bar(self):
+        """Индикатор статуса сервера (правый верхний угол)."""
         self.status_label = ctk.CTkLabel(
             self, text="● Проверка...", text_color="gray",
             font=("Segoe UI", 13)
@@ -53,6 +61,7 @@ class QRApp(ThemeMixin, HandlersMixin, ctk.CTk):
 
     # ================= LEFT =================
     def create_left(self):
+        """Левая панель: поле текста, цвета, параметры, кнопки."""
         self._left_card = ctk.CTkFrame(self, corner_radius=18, border_width=0)
         self._left_card.grid(row=1, column=0, padx=(20, 10), pady=15, sticky="nsew")
         self._cards.append(self._left_card)
@@ -159,6 +168,7 @@ class QRApp(ThemeMixin, HandlersMixin, ctk.CTk):
 
     # ================= PILL HELPERS =================
     def _create_color_pill(self, parent, label, color, cmd):
+        """Создание пилл-компонента выбора цвета с превью."""
         pill = ctk.CTkFrame(parent, corner_radius=12, border_width=1)
         self._pills.append(pill)
 
@@ -183,6 +193,7 @@ class QRApp(ThemeMixin, HandlersMixin, ctk.CTk):
         return pill
 
     def _create_param_pill(self, parent, label, default):
+        """Создание пилл-компонента с полем ввода числового параметра."""
         pill = ctk.CTkFrame(parent, corner_radius=12, border_width=1)
         self._pills.append(pill)
 
@@ -206,6 +217,7 @@ class QRApp(ThemeMixin, HandlersMixin, ctk.CTk):
 
     # ================= RIGHT =================
     def create_right(self):
+        """Правая панель: предпросмотр QR-кода и история."""
         self._right_card = ctk.CTkFrame(self, corner_radius=18, border_width=0)
         self._right_card.grid(row=1, column=1, padx=(10, 20), pady=15, sticky="nsew")
         self._cards.append(self._right_card)
@@ -265,6 +277,7 @@ class QRApp(ThemeMixin, HandlersMixin, ctk.CTk):
 
     # ================= FOOTER =================
     def create_footer(self):
+        """Нижняя панель: подсказка и кнопка смены темы."""
         self._footer = ctk.CTkFrame(self, corner_radius=14, height=48)
         self._footer.grid(row=2, column=0, columnspan=2, padx=20, pady=(0, 15), sticky="ew")
         self._footer.grid_propagate(False)
@@ -290,12 +303,14 @@ class QRApp(ThemeMixin, HandlersMixin, ctk.CTk):
 
     # ================= COLORS =================
     def pick_qr_color(self):
+        """Открытие палитры для выбора цвета QR-кода."""
         color = colorchooser.askcolor(initialcolor=self.qr_color)[1]
         if color:
             self.qr_color = color
             self.qr_color_pill._swatch.configure(fg_color=color, hover_color=color)
 
     def pick_bg_color(self):
+        """Открытие палитры для выбора цвета фона."""
         color = colorchooser.askcolor(initialcolor=self.bg_color)[1]
         if color:
             self.bg_color = color

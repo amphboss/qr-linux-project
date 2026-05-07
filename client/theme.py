@@ -2,16 +2,19 @@ from client.config import THEMES
 
 
 class ThemeMixin:
-    """Миксин для управления темой приложения."""
+    """Миксин для управления темой приложения (light/dark)."""
 
     def _init_theme(self):
+        """ Установка темы по умолчанию."""
         self._theme = "light"
 
     @property
     def t(self):
+        """ Текущий словарь цветов (зависит от self._theme)."""
         return THEMES[self._theme]
 
     def toggle_theme(self):
+        """Переключение между светлой и тёмной темой."""
         self._theme = "dark" if self._theme == "light" else "light"
         self._apply_theme()
 

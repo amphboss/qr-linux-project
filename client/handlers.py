@@ -12,6 +12,7 @@ class HandlersMixin:
 
     # ================= SERVER =================
     def check_server(self):
+        """ Периодическая проверка доступности сервера (каждые 5 сек)."""
         def check():
             if APIClient.check_server():
                 self.after(0, lambda: self.status_label.configure(
@@ -20,26 +21,32 @@ class HandlersMixin:
                 self.after(0, lambda: self.status_label.configure(
                     text="● Сервер недоступен", text_color="#ef4444"))
 
+        # Запуск в отдельном потоке, чтобы не блокировать UI
         threading.Thread(target=check, daemon=True).start()
-        self.after(5000, self.check_server)
+        self.after(5000, self.check_server)  # повтор через 5 сек
 
     # ================= GENERATE =================
     def generate(self):
+        """Запуск генерации в фоновом потоке."""
         threading.Thread(target=self._generate_thread).start()
 
     def _show_error(self, title, message):
+        """Показ ошибки в главном потоке (из фонового)."""
         self.after(0, lambda: messagebox.showerror(title, message))
 
     def _show_warning(self, title, message):
+        """Показ предупреждения в главном потоке."""
         self.after(0, lambda: messagebox.showwarning(title, message))
 
     def _generate_thread(self):
+        """ Фоновый поток: сбор параметров, отправка на сервер, обработка ответа."""
         text = self.textbox.get("1.0", "end").strip()
 
         if not text:
             self._show_warning("Пустой ввод", "Введите текст или URL для генерации QR-кода.")
             return
 
+        # Первый символ значения = буква уровня (L/M/Q/H)
         error_code = self.error_level.get()[0]
 
         try:
@@ -49,6 +56,7 @@ class HandlersMixin:
             self._show_error("Ошибка параметров", "Размер модуля и рамка должны быть числами.")
             return
 
+        # Формирование JSON-тела запроса
         data = {
             "text": text,
             "fill_color": self.qr_color,
@@ -59,7 +67,7 @@ class HandlersMixin:
         }
 
         try:
-            r = APIClient.generate(data)
+            r = APIClient.generate(data)  # HTTP POST на сервер
 
             if r.status_code == 422:
                 detail = r.json().get("detail", [])
@@ -82,18 +90,20 @@ class HandlersMixin:
             self._show_error("Нет соединения", "Не удалось подключиться к серверу.\nУбедитесь, что сервер запущен.")
 
     def _update_ui(self, path):
-        with self._lock:
+        """ Обновление интерфейса после успешной генерации."""
+        with self._lock:  # потокобезопасная запись пути
             self.qr_path = path
         img = ctk.CTkImage(Image.open(path), size=(280, 280))
         self.image_label.configure(image=img, text="")
-        self.image_label.image = img
-        self.preview_title.pack_forget()
+        self.image_label.image = img  # сохраняем ссылку от сборщика мусора
+        self.preview_title.pack_forget()  # убираем placeholder-текст
         self.preview_sub.pack_forget()
         self.load_history()
 
     # ================= SAVE =================
     def save_file(self):
-        with self._lock:
+        """ Сохранение QR-кода в файл, выбранный пользователем."""
+        with self._lock:  # потокобезопасное чтение пути
             path = self.qr_path
 
         if not path:
@@ -116,9 +126,11 @@ class HandlersMixin:
 
     # ================= HISTORY =================
     def load_history(self):
+        """Загрузка истории в фоновом потоке."""
         threading.Thread(target=self._history_thread, daemon=True).start()
 
     def _history_thread(self):
+        """ Запрос истории с сервера и передача в UI-поток."""
         try:
             data = APIClient.get_history()
             self.after(0, lambda: self._update_history(data))
@@ -126,7 +138,8 @@ class HandlersMixin:
             pass
 
     def _update_history(self, data):
-        with self._lock:
+        """Отображение истории в текстовом поле."""
+        with self._lock:  # потокобезопасная запись данных
             self.history_data = data
         self.history_list.configure(state="normal")
         self.history_list.delete("1.0", "end")

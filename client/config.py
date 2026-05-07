@@ -1,9 +1,12 @@
-API_GENERATE = "http://127.0.0.1:8000/generate"
-API_HISTORY = "http://127.0.0.1:8000/history"
-API_HEALTH = "http://127.0.0.1:8000/docs"
+# URL-адреса серверного API
+API_GENERATE = "http://127.0.0.1:8000/generate"  # генерация QR-кода
+API_HISTORY = "http://127.0.0.1:8000/history"    # получение истории
+API_HEALTH = "http://127.0.0.1:8000/docs"       # проверка доступности сервера
+
+# Заголовки для аутентификации запросов
 HEADERS = {"x-api-key": "mysecretkey"}
 
-# ===== ЦВЕТА ТЕМ =====
+# Цветовые схемы интерфейса (светлая и тёмная тема)
 THEMES = {
     "light": {
         "bg": "#ede5f7",
