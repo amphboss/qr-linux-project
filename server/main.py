@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import threading
 from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel, field_validator
 
@@ -27,6 +28,7 @@ app = FastAPI(title="QR Generator API")
 Base.metadata.create_all(bind=engine)
 
 qr_generator = QRGenerator()
+db_lock = threading.Lock()
 
 
 # ===== МОДЕЛЬ =====
@@ -76,8 +78,6 @@ def verify_api_key(x_api_key: str = Header(...)):
 # ===== ROUTES =====
 @app.post("/generate")
 def generate_qr(request: QRRequest, _: None = Depends(verify_api_key)):
-    db = SessionLocal()
-
     logger.info(f"QR: {request.text}")
 
     path = qr_generator.generate(
@@ -89,14 +89,17 @@ def generate_qr(request: QRRequest, _: None = Depends(verify_api_key)):
         error=request.error
     )
 
-    qr_record = QRCode(
-        text=request.text,
-        file_path=path
-    )
-
-    db.add(qr_record)
-    db.commit()
-    db.close()
+    with db_lock:
+        db = SessionLocal()
+        try:
+            qr_record = QRCode(
+                text=request.text,
+                file_path=path
+            )
+            db.add(qr_record)
+            db.commit()
+        finally:
+            db.close()
 
     return {
         "status": "success",
@@ -106,17 +109,19 @@ def generate_qr(request: QRRequest, _: None = Depends(verify_api_key)):
 
 @app.get("/history")
 def get_history(_: None = Depends(verify_api_key)):
-    db = SessionLocal()
+    with db_lock:
+        db = SessionLocal()
+        try:
+            records = db.query(QRCode).all()
+            result = [
+                {
+                    "id": r.id,
+                    "text": r.text,
+                    "file_path": r.file_path
+                }
+                for r in records
+            ]
+        finally:
+            db.close()
 
-    records = db.query(QRCode).all()
-
-    db.close()
-
-    return [
-        {
-            "id": r.id,
-            "text": r.text,
-            "file_path": r.file_path
-        }
-        for r in records
-    ]
+    return result

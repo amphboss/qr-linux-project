@@ -55,6 +55,7 @@ class QRApp(ctk.CTk):
         self.qr_color = "#000000"
         self.bg_color = "#ffffff"
         self._theme = "light"
+        self._lock = threading.Lock()
 
         # списки виджетов для перекраски
         self._cards = []
@@ -495,7 +496,8 @@ class QRApp(ctk.CTk):
             self._show_error("Ошибка", str(e))
 
     def update_ui(self, path):
-        self.qr_path = path
+        with self._lock:
+            self.qr_path = path
         img = ctk.CTkImage(Image.open(path), size=(280, 280))
         self.image_label.configure(image=img, text="")
         self.image_label.image = img
@@ -505,21 +507,24 @@ class QRApp(ctk.CTk):
 
     # ================= SAVE =================
     def save_file(self):
-        if not self.qr_path:
+        with self._lock:
+            path = self.qr_path
+
+        if not path:
             messagebox.showwarning("Нечего сохранять", "Сначала сгенерируйте QR-код.")
             return
 
         dest = filedialog.asksaveasfilename(
             defaultextension=".png",
             filetypes=[("PNG", "*.png"), ("Все файлы", "*.*")],
-            initialfile=os.path.basename(self.qr_path),
+            initialfile=os.path.basename(path),
             title="Сохранить QR-код"
         )
 
         if not dest:
             return
 
-        with open(self.qr_path, "rb") as f:
+        with open(path, "rb") as f:
             with open(dest, "wb") as out:
                 out.write(f.read())
 
@@ -536,7 +541,8 @@ class QRApp(ctk.CTk):
             pass
 
     def update_history(self, data):
-        self.history_data = data
+        with self._lock:
+            self.history_data = data
         self.history_list.configure(state="normal")
         self.history_list.delete("1.0", "end")
         for item in data:
