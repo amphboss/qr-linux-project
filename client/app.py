@@ -1,49 +1,15 @@
 import customtkinter as ctk
-import requests
-from PIL import Image
 import threading
-from tkinter import colorchooser, filedialog, messagebox
-import os
+from tkinter import colorchooser
 
-API_GENERATE = "http://127.0.0.1:8000/generate"
-API_HISTORY = "http://127.0.0.1:8000/history"
-HEADERS = {"x-api-key": "mysecretkey"}
-
-# ===== ЦВЕТА ТЕМ =====
-THEMES = {
-    "light": {
-        "bg": "#ede5f7",
-        "card": "#ffffff",
-        "accent": "#7c3aed",
-        "accent_hover": "#6d28d9",
-        "text1": "#1a1a2e",
-        "text2": "#6b7280",
-        "border": "#e5e7eb",
-        "pill": "#f9fafb",
-        "input": "#fafafa",
-        "hover": "#f3f4f6",
-        "icon": "🌙",
-    },
-    "dark": {
-        "bg": "#1a1025",
-        "card": "#2d2640",
-        "accent": "#a78bfa",
-        "accent_hover": "#8b5cf6",
-        "text1": "#f1f0f3",
-        "text2": "#9ca3af",
-        "border": "#4a4458",
-        "pill": "#362f48",
-        "input": "#362f48",
-        "hover": "#3d3556",
-        "icon": "☀",
-    },
-}
+from client.theme import ThemeMixin
+from client.handlers import HandlersMixin
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
 
-class QRApp(ctk.CTk):
+class QRApp(ThemeMixin, HandlersMixin, ctk.CTk):
     def __init__(self):
         super().__init__()
 
@@ -54,8 +20,8 @@ class QRApp(ctk.CTk):
         self.history_data = []
         self.qr_color = "#000000"
         self.bg_color = "#ffffff"
-        self._theme = "light"
         self._lock = threading.Lock()
+        self._init_theme()
 
         # списки виджетов для перекраски
         self._cards = []
@@ -76,10 +42,6 @@ class QRApp(ctk.CTk):
 
         self.check_server()
         self.load_history()
-
-    @property
-    def t(self):
-        return THEMES[self._theme]
 
     # ================= STATUS BAR =================
     def create_status_bar(self):
@@ -338,216 +300,6 @@ class QRApp(ctk.CTk):
         if color:
             self.bg_color = color
             self.bg_color_pill._swatch.configure(fg_color=color, hover_color=color)
-
-    # ================= THEME =================
-    def toggle_theme(self):
-        self._theme = "dark" if self._theme == "light" else "light"
-        self._apply_theme()
-
-    def _apply_theme(self):
-        t = self.t
-
-        self.configure(fg_color=t["bg"])
-
-        for card in self._cards:
-            card.configure(fg_color=t["card"])
-
-        for pill in self._pills:
-            pill.configure(fg_color=t["pill"], border_color=t["border"])
-
-        for lbl in self._labels1:
-            lbl.configure(text_color=t["text1"])
-
-        for lbl in self._labels2:
-            lbl.configure(text_color=t["text2"])
-
-        for entry in self._entries:
-            entry.configure(
-                fg_color=t["card"], border_color=t["border"],
-                text_color=t["text1"]
-            )
-
-        # заголовки
-        self._header_left.configure(text_color=t["accent"])
-        self._header_right.configure(text_color=t["accent"])
-
-        # текстовое поле
-        self.textbox.configure(
-            fg_color=t["input"], border_color=t["border"],
-            text_color=t["text1"]
-        )
-
-        # предпросмотр
-        self._preview_frame.configure(
-            fg_color=t["input"], border_color=t["border"]
-        )
-
-        # история
-        self.history_list.configure(
-            fg_color=t["pill"], text_color=t["text1"]
-        )
-
-        # кнопка генерации
-        self.generate_btn.configure(
-            fg_color=t["accent"], hover_color=t["accent_hover"]
-        )
-
-        # кнопка сохранения
-        self.save_btn.configure(
-            border_color=t["border"], text_color=t["text1"],
-            hover_color=t["hover"]
-        )
-
-        # выпадающий список ошибок
-        self.error_level.configure(
-            fg_color=t["pill"], button_color=t["pill"],
-            button_hover_color=t["hover"],
-            text_color=t["text1"],
-            dropdown_fg_color=t["card"]
-        )
-
-        # цветовые сэмплы — рамка
-        self.qr_color_pill._swatch.configure(border_color=t["border"])
-        self.bg_color_pill._swatch.configure(border_color=t["border"])
-
-        # кнопка темы
-        self._theme_btn.configure(
-            text=t["icon"], fg_color=t["pill"],
-            hover_color=t["hover"], text_color=t["text1"]
-        )
-
-        # сохраняем цвет статуса (не перезаписываем зелёный/красный)
-        current = self.status_label.cget("text_color")
-        if current == "gray":
-            self.status_label.configure(text_color=t["text2"])
-
-    # ================= SERVER =================
-    def check_server(self):
-        def check():
-            try:
-                requests.get("http://127.0.0.1:8000/docs", timeout=2)
-                self.after(0, lambda: self.status_label.configure(
-                    text="● Сервер доступен", text_color="#22c55e"))
-            except:
-                self.after(0, lambda: self.status_label.configure(
-                    text="● Сервер недоступен", text_color="#ef4444"))
-
-        threading.Thread(target=check, daemon=True).start()
-        self.after(5000, self.check_server)
-
-    # ================= GENERATE =================
-    def generate(self):
-        threading.Thread(target=self.generate_thread).start()
-
-    def _show_error(self, title, message):
-        self.after(0, lambda: messagebox.showerror(title, message))
-
-    def _show_warning(self, title, message):
-        self.after(0, lambda: messagebox.showwarning(title, message))
-
-    def generate_thread(self):
-        text = self.textbox.get("1.0", "end").strip()
-
-        if not text:
-            self._show_warning("Пустой ввод", "Введите текст или URL для генерации QR-кода.")
-            return
-
-        error_code = self.error_level.get()[0]
-
-        try:
-            box_size = int(self.size_entry.get() or 10)
-            border = int(self.border_entry.get() or 4)
-        except ValueError:
-            self._show_error("Ошибка параметров", "Размер модуля и рамка должны быть числами.")
-            return
-
-        data = {
-            "text": text,
-            "fill_color": self.qr_color,
-            "back_color": self.bg_color,
-            "box_size": box_size,
-            "border": border,
-            "error": error_code,
-        }
-
-        try:
-            r = requests.post(API_GENERATE, json=data, headers=HEADERS)
-
-            if r.status_code == 422:
-                detail = r.json().get("detail", [])
-                msgs = [d.get("msg", "") for d in detail] if isinstance(detail, list) else [str(detail)]
-                self._show_error("Ошибка валидации", "\n".join(msgs))
-                return
-
-            if r.status_code != 200:
-                self._show_error("Ошибка сервера", f"Сервер вернул код {r.status_code}.")
-                return
-
-            res = r.json()
-
-            if res.get("status") == "success":
-                self.after(0, lambda: self.update_ui(res["file_path"]))
-            else:
-                self._show_error("Ошибка API", str(res))
-
-        except requests.ConnectionError:
-            self._show_error("Нет соединения", "Не удалось подключиться к серверу.\nУбедитесь, что сервер запущен.")
-        except Exception as e:
-            self._show_error("Ошибка", str(e))
-
-    def update_ui(self, path):
-        with self._lock:
-            self.qr_path = path
-        img = ctk.CTkImage(Image.open(path), size=(280, 280))
-        self.image_label.configure(image=img, text="")
-        self.image_label.image = img
-        self.preview_title.pack_forget()
-        self.preview_sub.pack_forget()
-        self.load_history()
-
-    # ================= SAVE =================
-    def save_file(self):
-        with self._lock:
-            path = self.qr_path
-
-        if not path:
-            messagebox.showwarning("Нечего сохранять", "Сначала сгенерируйте QR-код.")
-            return
-
-        dest = filedialog.asksaveasfilename(
-            defaultextension=".png",
-            filetypes=[("PNG", "*.png"), ("Все файлы", "*.*")],
-            initialfile=os.path.basename(path),
-            title="Сохранить QR-код"
-        )
-
-        if not dest:
-            return
-
-        with open(path, "rb") as f:
-            with open(dest, "wb") as out:
-                out.write(f.read())
-
-    # ================= HISTORY =================
-    def load_history(self):
-        threading.Thread(target=self.history_thread).start()
-
-    def history_thread(self):
-        try:
-            r = requests.get(API_HISTORY, headers=HEADERS)
-            data = r.json()
-            self.after(0, lambda: self.update_history(data))
-        except:
-            pass
-
-    def update_history(self, data):
-        with self._lock:
-            self.history_data = data
-        self.history_list.configure(state="normal")
-        self.history_list.delete("1.0", "end")
-        for item in data:
-            self.history_list.insert("end", f"#{item['id']}  {item['text']}\n")
-        self.history_list.configure(state="disabled")
 
 
 if __name__ == "__main__":
