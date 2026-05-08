@@ -1,9 +1,21 @@
 import customtkinter as ctk
 import threading
+import logging
+import os
 from tkinter import colorchooser
 
 from client.theme import ThemeMixin
 from client.handlers import HandlersMixin
+
+# Настройка логирования клиента
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+
+logger = logging.getLogger("client")
+logger.setLevel(logging.INFO)
+_handler = logging.FileHandler("logs/client.log")
+_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+logger.addHandler(_handler)
 
 # Установка базового режима CustomTkinter
 ctk.set_appearance_mode("light")
@@ -47,6 +59,7 @@ class QRApp(ThemeMixin, HandlersMixin, ctk.CTk):
         self._apply_theme()     # применяем цвета текущей темы
 
         # Фоновые задачи при старте
+        logger.info("Приложение запущено")
         self.check_server()     # проверка сервера
         self.load_history()     # загрузка истории
 

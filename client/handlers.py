@@ -1,10 +1,13 @@
 import threading
 import os
+import logging
 import customtkinter as ctk
 from PIL import Image
 from tkinter import filedialog, messagebox
 
 from client.api_client import APIClient
+
+logger = logging.getLogger("client")
 
 
 class HandlersMixin:
@@ -25,6 +28,12 @@ class HandlersMixin:
         threading.Thread(target=check, daemon=True).start()
         self.after(5000, self.check_server)  # повтор через 5 сек
 
+    def _log_server_status(self, available: bool):
+        if available:
+            logger.info("Сервер доступен")
+        else:
+            logger.warning("Сервер недоступен")
+
     # ================= GENERATE =================
     def generate(self):
         """Запуск генерации в фоновом потоке."""
@@ -43,8 +52,11 @@ class HandlersMixin:
         text = self.textbox.get("1.0", "end").strip()
 
         if not text:
+            logger.warning("Попытка генерации с пустым вводом")
             self._show_warning("Пустой ввод", "Введите текст или URL для генерации QR-кода.")
             return
+
+        logger.info(f"Генерация QR: '{text[:50]}'")  # первые 50 симв.
 
         # Первый символ значения = буква уровня (L/M/Q/H)
         error_code = self.error_level.get()[0]
@@ -82,11 +94,14 @@ class HandlersMixin:
             res = r.json()
 
             if res.get("status") == "success":
+                logger.info(f"QR сохранён: {res['file_path']}")
                 self.after(0, lambda: self._update_ui(res["file_path"]))
             else:
+                logger.error(f"Ошибка API: {res}")
                 self._show_error("Ошибка API", str(res))
 
         except Exception as e:
+            logger.error(f"Нет соединения с сервером: {e}")
             self._show_error("Нет соединения", "Не удалось подключиться к серверу.\nУбедитесь, что сервер запущен.")
 
     def _update_ui(self, path):
@@ -123,6 +138,7 @@ class HandlersMixin:
         with open(path, "rb") as f:
             with open(dest, "wb") as out:
                 out.write(f.read())
+        logger.info(f"Файл сохранён: {dest}")
 
     # ================= HISTORY =================
     def load_history(self):
